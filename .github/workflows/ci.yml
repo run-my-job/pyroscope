@@ -1,10 +1,5 @@
 name: ci
-on:
-  push:
-    branches:
-      - main
-
-  pull_request:
+on: push
 
 permissions:
   contents: read
@@ -18,7 +13,7 @@ concurrency:
 
 jobs:
   format:
-    runs-on: ubuntu-latest
+    runs-on: puzl-ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -31,7 +26,7 @@ jobs:
       - name: Format
         run: make fmt check/unstaged-changes
   check-generated:
-    runs-on: ubuntu-latest
+    runs-on: puzl-ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -51,7 +46,7 @@ jobs:
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: puzl-ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -66,7 +61,7 @@ jobs:
       - name: Test
         run: make go/test
   lint:
-    runs-on: ubuntu-latest
+    runs-on: puzl-ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -82,7 +77,7 @@ jobs:
         run: make helm/check check/unstaged-changes
 
   test-docs:
-    runs-on: ubuntu-latest
+    runs-on: puzl-ubuntu-latest
     steps:
       - name: "Check out code"
         uses: "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683" # v4
@@ -93,7 +88,7 @@ jobs:
 
   build-image:
     if: github.event_name != 'push'
-    runs-on: ubuntu-latest
+    runs-on: puzl-ubuntu-latest
     steps:
       - name: Checkout Repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -102,7 +97,8 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: 
+          docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2     # v3.10.0
       - name: Set up go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
@@ -112,14 +108,15 @@ jobs:
           node-version: 20
           cache: yarn
       - name: Build image Pyroscope
-        run: make docker-image/pyroscope/build-multiarch "BUILDX_ARGS=--cache-from=type=gha --cache-to=type=gha"
+        run: make docker-image/pyroscope/build-multiarch 
+          "BUILDX_ARGS=--cache-from=type=gha --cache-to=type=gha"
 
   build-push:
     if: github.event_name == 'push' && github.repository == 'grafana/pyroscope'
     permissions:
       contents: read
       id-token: write
-    runs-on: ubuntu-latest
+    runs-on: puzl-ubuntu-latest
     outputs:
       image: ${{ steps.push-metadata.outputs.image }}
       image-digest: ${{ steps.push-metadata.outputs.image-digest }}
@@ -132,14 +129,16 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+        uses: 
+          docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2     # v3.10.0
       - name: Set up go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           go-version: 1.23.10
       # login to docker hub
       - id: get-secrets
-        uses: grafana/shared-workflows/actions/get-vault-secrets@28361cdb22223e5f1e34358c86c20908e7248760
+        uses: 
+          grafana/shared-workflows/actions/get-vault-secrets@28361cdb22223e5f1e34358c86c20908e7248760
         with:
           common_secrets: |
             DOCKERHUB_USERNAME=dockerhub:username
@@ -165,19 +164,21 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    if: github.event_name == 'push' && github.repository == 'grafana/pyroscope' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.repository == 'grafana/pyroscope' 
+      && github.ref == 'refs/heads/main'
+    runs-on: puzl-ubuntu-latest
     needs: [build-push]
     steps:
-    - id: "submit-argowfs-deployment"
-      name: "Submit Argo Workflows deployment"
-      uses: grafana/shared-workflows/actions/trigger-argo-workflow@af9b0c52635d39023136fb9312a354f91d9b2bfd
-      with:
-        namespace: "phlare-cd"
-        workflow_template: "deploy-pyroscope-dev"
-        parameters: |
-          dockertag=${{ needs.build-push.outputs.image-tag }}
-          commit=${{ github.sha }}
-    - name: Print URI
-      run: |
-        echo "URI: ${{ steps.submit-argowfs-deployment.outputs.uri }}"
+      - id: "submit-argowfs-deployment"
+        name: "Submit Argo Workflows deployment"
+        uses: 
+          grafana/shared-workflows/actions/trigger-argo-workflow@af9b0c52635d39023136fb9312a354f91d9b2bfd
+        with:
+          namespace: "phlare-cd"
+          workflow_template: "deploy-pyroscope-dev"
+          parameters: |
+            dockertag=${{ needs.build-push.outputs.image-tag }}
+            commit=${{ github.sha }}
+      - name: Print URI
+        run: |
+          echo "URI: ${{ steps.submit-argowfs-deployment.outputs.uri }}"
